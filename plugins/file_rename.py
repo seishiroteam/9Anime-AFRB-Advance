@@ -17,6 +17,36 @@ from config import Config
 
 renaming_operations = {}
 
+active_sequences = {}
+
+@Client.on_message(filters.command("ssequence") & filters.private)
+async def start_sequence(client, message: Message):
+    user_id = message.from_user.id
+    if user_id in active_sequences:
+        await message.reply_text("A sequence is already active! Use /esequence to end it.")
+    else:
+        active_sequences[user_id] = []  # Start a new sequence
+        await message.reply_text("Sequence started! Send your files.")
+
+@Client.on_message(filters.command("esequence") & filters.private)
+async def end_sequence(client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in active_sequences:
+        await message.reply_text("No active sequence found!")
+        return
+    
+    file_list = active_sequences.pop(user_id)  # Get the stored files
+
+    if not file_list:
+        await message.reply_text("No files were sent in this sequence!")
+        return
+
+    await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
+
+    # Sending back the stored files
+    for file in file_list:
+        await client.send_document(message.chat.id, file)
+
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
@@ -137,6 +167,16 @@ def extract_episode_number(filename):
 filename = "Naruto Shippuden S01 - EP07 - 1080p [Dual Audio] @NineAnimeOfficial.mkv"
 episode_number = extract_episode_number(filename)
 print(f"Extracted Episode Number: {episode_number}")
+
+@Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
+async def handle_media(client, message: Message):
+    user_id = message.from_user.id
+
+    # If the user is in a sequence, store the file instead of renaming
+    if user_id in active_sequences:
+        active_sequences[user_id].append(message.document.file_id)  # Store file ID
+        await message.reply_text("File received in sequence.")
+        return
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
