@@ -17,36 +17,67 @@ from config import Config
 
 renaming_operations = {}
 
-active_sequences = {}
+user_file_sequences = {}
 
-@Client.on_message(filters.command("ssequence") & filters.private)
-async def start_sequence(client, message: Message):
-    user_id = message.from_user.id
-    if user_id in active_sequences:
-        await message.reply_text("A sequence is already active! Use /esequence to end it.")
-    else:
-        active_sequences[user_id] = []  # Start a new sequence
-        await message.reply_text("Sequence started! Send your files.")
+def detect_quality(file_name):
+    """ Detects video quality from filename """
+    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
+    match = re.search(r"(480p|720p|1080p)", file_name)
+    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
 
-@Client.on_message(filters.command("esequence") & filters.private)
-async def end_sequence(client, message: Message):
+@app.on_message(filters.command("ssequence"))
+async def start_sequence(client: Client, message: Message):
     user_id = message.from_user.id
-    if user_id not in active_sequences:
-        await message.reply_text("No active sequence found!")
+    if user_id in user_file_sequences:
+        await message.reply_text("You already have an active sequencing session. Use /esequence to complete it.")
+        return
+    user_file_sequences[user_id] = []
+    await message.reply_text("File sequencing started. Send documents and videos. Use /esequence to finish.")
+
+@app.on_message(filters.document | filters.video)
+async def process_file(client: Client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in user_file_sequences:
+        await message.reply_text("Start a sequence first using /ssequence.")
         return
     
-    file_list = active_sequences.pop(user_id)  # Get the stored files
+    file = message.document or message.video
+    if file:
+        user_file_sequences[user_id].append(file)
+        await message.reply_text("File received and added to the sequence.")
+    else:
+        await message.reply_text("Unsupported file type. Send documents or videos only.")
 
-    if not file_list:
-        await message.reply_text("No files were sent in this sequence!")
+@app.on_message(filters.command("esequence"))
+async def end_sequence(client: Client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in user_file_sequences or not user_file_sequences[user_id]:
+        await message.reply_text("No files to sequence. Use /ssequence first.")
         return
+    
+    sorted_files = sorted(user_file_sequences[user_id], key=lambda f: (
+        detect_quality(f.file_name) if f.file_name else 4,  # Sort by quality
+        f.file_name if f.file_name else ""
+    ))
 
-    await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
+    for file in sorted_files:
+        if file.file_id:
+            if file.file_name and file.file_name.endswith(('.mp4', '.mov', '.avi')):
+                await message.reply_video(file.file_id)
+            else:
+                await message.reply_document(file.file_id)
+    
+    del user_file_sequences[user_id]
+    await message.reply_text("File sequencing completed.")
 
-    # Sending back the stored files
-    for file in file_list:
-        await client.send_document(message.chat.id, file)
-
+@app.on_message(filters.command("csequence"))
+async def cancel_sequence(client: Client, message: Message):
+    user_id = message.from_user.id
+    if user_id in user_file_sequences:
+        del user_file_sequences[user_id]
+        await message.reply_text("File sequencing process canceled.")
+    else:
+        await message.reply_text("No active sequencing process to cancel.")
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
