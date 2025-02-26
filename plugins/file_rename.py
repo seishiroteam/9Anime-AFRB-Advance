@@ -183,6 +183,8 @@ print(f"Extracted Episode Number: {episode_number}")
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
+    file_id = message.document.file_id if message.document else message.video.file_id if message.video else message.audio.file_id
+    file_name = message.document.file_name if message.document else message.video.file_name if message.video else message.audio.file_name
 
     if user_id in active_sequences:
         # If sequence is active, store the file instead of renaming
