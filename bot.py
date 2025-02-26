@@ -17,7 +17,7 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 import re
 
-TOKEN = "8082722336:AAHZO6Xn1y0al6X23cwiDTZAGVwovoGx2Vk"
+TOKEN = "7687416170:AAGPyRYy-i-oENR4YZ4tpsqhEZWURQwTG9U"
 user_file_sequences = {}
 
 def start(update: Update, context: CallbackContext):
