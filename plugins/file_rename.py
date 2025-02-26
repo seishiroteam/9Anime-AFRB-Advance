@@ -18,13 +18,6 @@ from config import Config
 renaming_operations = {}
 
 active_sequences = {}
-message_ids = {}
-
-# Function to detect video quality from filename
-def detect_quality(file_name):
-    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
-    match = re.search(r"(480p|720p|1080p)", file_name)
-    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
 
 @Client.on_message(filters.command("ssequence") & filters.private)
 async def start_sequence(client, message: Message):
@@ -32,10 +25,32 @@ async def start_sequence(client, message: Message):
     if user_id in active_sequences:
         await message.reply_text("A sequence is already active! Use /esequence to end it.")
     else:
-        active_sequences[user_id] = []
-        message_ids[user_id] = []
-        msg = await message.reply_text("Sequence started! Send your files.")
-        message_ids[user_id].append(msg.message_id)
+        active_sequences[user_id] = []  # Start a new sequence
+        await message.reply_text("Sequence started! Send your files.")
+
+@Client.on_message(filters.document | filters.video & filters.private)
+async def save_file(client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in active_sequences:
+        await message.reply_text("No active sequence found! Use /ssequence to start one.")
+        return
+
+    file = message.document or message.video
+    if file:
+        file_info = {
+            "file_id": file.file_id,
+            "file_name": file.file_name if file.file_name else "Unknown"
+        }
+        active_sequences[user_id].append(file_info)
+        await message.reply_text(f"File `{file_info['file_name']}` added to sequence!")
+    else:
+        await message.reply_text("Unsupported file type. Send documents or videos only.")
+
+def detect_quality(file_name):
+    """ Detects video quality from filename """
+    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
+    match = re.search(r"(480p|720p|1080p)", file_name)
+    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
 
 @Client.on_message(filters.command("esequence") & filters.private)
 async def end_sequence(client, message: Message):
@@ -43,50 +58,35 @@ async def end_sequence(client, message: Message):
     if user_id not in active_sequences:
         await message.reply_text("No active sequence found!")
         return
-
-    file_list = active_sequences.pop(user_id, [])
-    delete_messages = message_ids.pop(user_id, [])
-
+    
+    file_list = active_sequences.pop(user_id)  # Get stored files
+    
     if not file_list:
         await message.reply_text("No files were sent in this sequence!")
         return
-
-    # Sorting files based on quality
+    
+    # Sorting by quality (480p -> 720p -> 1080p)
     sorted_files = sorted(file_list, key=lambda f: (
-        detect_quality(f["file_name"]) if "file_name" in f else 4,
-        f["file_name"] if "file_name" in f else ""
+        detect_quality(f["file_name"]),
+        f["file_name"]
     ))
 
     await message.reply_text(f"Sequence ended! Sending {len(sorted_files)} files back...")
 
-    # Sending sorted files
     for file in sorted_files:
-        await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
+        if file["file_name"].endswith(('.mp4', '.mov', '.avi')):
+            await client.send_video(message.chat.id, file["file_id"], caption=file["file_name"])
+        else:
+            await client.send_document(message.chat.id, file["file_id"], caption=file["file_name"])
 
-    # Deleting old messages (file added messages)
-    try:
-        await client.delete_messages(chat_id=message.chat.id, message_ids=delete_messages)
-    except Exception as e:
-        print(f"Error deleting messages: {e}")
-
-@Client.on_message(filters.document | filters.video & filters.private)
-async def process_file(client, message: Message):
+@Client.on_message(filters.command("cancel") & filters.private)
+async def cancel_sequence(client, message: Message):
     user_id = message.from_user.id
-    if user_id not in active_sequences:
-        await message.reply_text("Start a sequence first using /ssequence.")
-        return
-
-    file = message.document or message.video
-    if file:
-        file_data = {
-            "file_id": file.file_id,
-            "file_name": file.file_name if file.file_name else "Unknown File"
-        }
-        active_sequences[user_id].append(file_data)
-        msg = await message.reply_text(f"File {file_data['file_name']} added to sequence!")
-        message_ids[user_id].append(msg.message_id)
-        message_ids[user_id].append(message.message_id)  # Store user-sent file message for deletion
-
+    if user_id in active_sequences:
+        del active_sequences[user_id]
+        await message.reply_text("File sequencing process canceled.")
+    else:
+        await message.reply_text("No active sequencing process to cancel.")
 
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
