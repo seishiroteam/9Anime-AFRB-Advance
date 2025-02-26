@@ -18,6 +18,7 @@ from config import Config
 renaming_operations = {}
 
 active_sequences = {}
+message_logs = {}  # Store message IDs for deletion
 
 @Client.on_message(filters.command("ssequence") & filters.private)
 async def start_sequence(client, message: Message):
@@ -26,13 +27,15 @@ async def start_sequence(client, message: Message):
         await message.reply_text("A sequence is already active! Use /esequence to end it.")
     else:
         active_sequences[user_id] = []  # Start a new sequence
-        await message.reply_text("Sequence started! Send your files.")
+        message_logs[user_id] = [message.message_id]  # Store the start command message ID
+        sent_msg = await message.reply_text("Sequence started! Send your files.")
+        message_logs[user_id].append(sent_msg.message_id)  # Store bot's reply ID
 
 @Client.on_message(filters.document | filters.video & filters.private)
 async def save_file(client, message: Message):
     user_id = message.from_user.id
     if user_id not in active_sequences:
-        await message.reply_text("No active sequence found! Use /ssequence to start one.")
+        sent_msg = await message.reply_text("No active sequence found! Use /ssequence to start one.")
         return
 
     file = message.document or message.video
@@ -42,9 +45,9 @@ async def save_file(client, message: Message):
             "file_name": file.file_name if file.file_name else "Unknown"
         }
         active_sequences[user_id].append(file_info)
-        await message.reply_text(f"File `{file_info['file_name']}` added to sequence!")
-    else:
-        await message.reply_text("Unsupported file type. Send documents or videos only.")
+
+        sent_msg = await message.reply_text(f"File `{file_info['file_name']}` added to sequence!")
+        message_logs[user_id].extend([message.message_id, sent_msg.message_id])  # Store file and response message IDs
 
 def detect_quality(file_name):
     """ Detects video quality from filename """
@@ -71,19 +74,35 @@ async def end_sequence(client, message: Message):
         f["file_name"]
     ))
 
-    await message.reply_text(f"Sequence ended! Sending {len(sorted_files)} files back...")
+    sent_msg = await message.reply_text(f"Sequence ended! Sending {len(sorted_files)} files back...")
+    message_logs[user_id].extend([message.message_id, sent_msg.message_id])  # Store end command message ID
 
     for file in sorted_files:
         if file["file_name"].endswith(('.mp4', '.mov', '.avi')):
-            await client.send_video(message.chat.id, file["file_id"], caption=file["file_name"])
+            sent_file = await client.send_video(message.chat.id, file["file_id"], caption=file["file_name"])
         else:
-            await client.send_document(message.chat.id, file["file_id"], caption=file["file_name"])
+            sent_file = await client.send_document(message.chat.id, file["file_id"], caption=file["file_name"])
+        message_logs[user_id].append(sent_file.message_id)  # Store sent file message ID
+
+    # Delete all sequence-related messages
+    await delete_sequence_messages(client, message.chat.id, user_id)
+
+async def delete_sequence_messages(client, chat_id, user_id):
+    """ Deletes all messages related to the sequence """
+    if user_id in message_logs:
+        for msg_id in message_logs[user_id]:
+            try:
+                await client.delete_messages(chat_id, msg_id)
+            except Exception:
+                pass  # Ignore if message is already deleted
+        del message_logs[user_id]  # Clear logs after deletion
 
 @Client.on_message(filters.command("cancel") & filters.private)
 async def cancel_sequence(client, message: Message):
     user_id = message.from_user.id
     if user_id in active_sequences:
         del active_sequences[user_id]
+        await delete_sequence_messages(client, message.chat.id, user_id)
         await message.reply_text("File sequencing process canceled.")
     else:
         await message.reply_text("No active sequencing process to cancel.")
