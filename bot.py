@@ -12,7 +12,6 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
 import time
 
-
 pyrogram.utils.MIN_CHANNEL_ID = -1002258136705
 
 # Setting SUPPORT_CHAT directly here
