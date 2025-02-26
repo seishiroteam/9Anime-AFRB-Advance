@@ -16,6 +16,48 @@ from helper.database import codeflixbots
 from config import Config
 
 renaming_operations = {}
+
+active_sequences = {}
+
+@Client.on_message(filters.command("ssequence") & filters.private)
+async def start_sequence(client, message: Message):
+    user_id = message.from_user.id
+    if user_id in active_sequences:
+        await message.reply_text("A sequence is already active! Use /esequence to end it.")
+    else:
+        active_sequences[user_id] = []  # Start a new sequence
+        await message.reply_text("Sequence started! Send your files.")
+
+@Client.on_message(filters.command("esequence") & filters.private)
+async def end_sequence(client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in active_sequences:
+        await message.reply_text("No active sequence found!")
+        return
+    
+    file_list = active_sequences.pop(user_id)  # Get the stored files
+    
+    if not file_list:
+        await message.reply_text("No files were sent in this sequence!")
+        return
+    
+    # Sorting function to prioritize 480p, then 720p, then 1080p
+    def sort_files(file):
+        filename = file["file_name"].lower() if "file_name" in file else ""
+        if "480p" in filename:
+            return 1
+        elif "720p" in filename:
+            return 2
+        elif "1080p" in filename:
+            return 3
+        return 4  # Default priority if resolution is unknown
+    
+    file_list.sort(key=sort_files)  # Sort files before sending
+    
+    await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
+    
+    for file in file_list:
+        await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
         
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
