@@ -43,7 +43,7 @@ async def end_sequence(client, message: Message):
     
     # Sorting function to prioritize 480p, then 720p, then 1080p
     def sort_files(file):
-        filename = file["file_name"].lower() if "file_name" in file else ""
+        filename = file.get("file_name", "").lower().replace(" ", "")  # Convert to lowercase and remove spaces
         if "480p" in filename:
             return 1
         elif "720p" in filename:
@@ -55,9 +55,10 @@ async def end_sequence(client, message: Message):
     file_list.sort(key=sort_files)  # Sort files before sending
     
     await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
-    
+
     for file in file_list:
         await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
+
 
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
