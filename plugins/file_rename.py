@@ -58,7 +58,7 @@ async def end_sequence(client, message: Message):
     
     for file in file_list:
         await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
-        
+
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
@@ -178,21 +178,23 @@ def extract_episode_number(filename):
 # Example Usage:
 filename = "Naruto Shippuden S01 - EP07 - 1080p [Dual Audio] @NineAnimeOfficial.mkv"
 episode_number = extract_episode_number(filename)
-print(f"Extracted Episode Number: {episode_number}")
-
-@Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
-async def handle_media(client, message: Message):
-    user_id = message.from_user.id
-
-    # If the user is in a sequence, store the file instead of renaming
-    if user_id in active_sequences:
-        active_sequences[user_id].append(message.document.file_id)  # Store file ID
-        await message.reply_text("File received in sequence.")
-        return
+print(f"Extracted Episode Number: {episode_number}")    
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
+
+    if user_id in active_sequences:
+        # If sequence is active, store the file instead of renaming
+        file_info = {
+            "file_id": file_id,
+            "file_name": file_name if file_name else "Unknown"
+        }
+        active_sequences[user_id].append(file_info)
+        await message.reply_text(f"File received in sequence...")
+        return  # Do not process auto-rename when in sequence mode
+
+    # Auto-Rename Logic (Runs only when not in sequence mode)
     format_template = await codeflixbots.get_format_template(user_id)
     media_preference = await codeflixbots.get_media_preference(user_id)
 
@@ -332,7 +334,7 @@ async def auto_rename_files(client, message):
 
         if ph_path:
             img = Image.open(ph_path).convert("RGB")
-            img = img.resize((1280, 720))
+            img = img.resize((320, 320))
             img.save(ph_path, "JPEG")
 
         try:
