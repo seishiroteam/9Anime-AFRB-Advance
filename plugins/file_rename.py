@@ -40,24 +40,25 @@ async def end_sequence(client, message: Message):
     if not file_list:
         await message.reply_text("No files were sent in this sequence!")
         return
-
-    # Function to extract and correctly parse episode number
-    def extract_ep_number(filename):
-        match = re.search(r'\[S\d+-(\d+)\]', filename)  # Extracts episode number from [S1-XX]
-        return int(match.group(1)) if match else float('inf')  # Convert episode number to int
-
-    # Sort the file list numerically by episode number
-    file_list.sort(key=lambda file: extract_ep_number(file.get("file_name", "")))
-
+    
+    # Sorting function to prioritize 480p, then 720p, then 1080p
+    def sort_files(file):
+        filename = file["file_name"].lower() if "file_name" in file else ""
+        if "480p" in filename:
+            return 1
+        elif "720p" in filename:
+            return 2
+        elif "1080p" in filename:
+            return 3
+        return 4  # Default priority if resolution is unknown
+    
+    file_list.sort(key=sort_files)  # Sort files before sending
+    
     await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
-
+    
     for file in file_list:
-        await client.send_document(
-            message.chat.id, 
-            file["file_id"], 
-            caption=f"**{file.get('file_name', '')}**", 
-        )
-        
+        await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
+
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
@@ -182,8 +183,6 @@ print(f"Extracted Episode Number: {episode_number}")
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
-    file_id = message.document.file_id if message.document else message.video.file_id if message.video else message.audio.file_id
-    file_name = message.document.file_name if message.document else message.video.file_name if message.video else message.audio.file_name
 
     if user_id in active_sequences:
         # If sequence is active, store the file instead of renaming
