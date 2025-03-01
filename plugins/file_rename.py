@@ -35,29 +35,29 @@ async def end_sequence(client, message: Message):
         await message.reply_text("No active sequence found!")
         return
     
-    file_list = active_sequences.pop(user_id)
+    file_list = active_sequences.pop(user_id)  # Get the stored files
+    
     if not file_list:
         await message.reply_text("No files were sent in this sequence!")
         return
-    
-    def extract_episode(filename):
-        match = re.search(r'(?:S\d+E|EP)(\d+)', filename, re.IGNORECASE)
-        return int(match.group(1)) if match else float('inf')
 
-    def extract_quality(filename):
-        if "480p" in filename: return 1
-        if "720p" in filename: return 2
-        if "1080p" in filename: return 3
-        return 4
+    # Function to extract and correctly parse episode number
+    def extract_ep_number(filename):
+        match = re.search(r'\[S\d+-(\d+)\]', filename)  # Extracts episode number from [S1-XX]
+        return int(match.group(1)) if match else float('inf')  # Convert episode number to int
 
-    file_list.sort(key=lambda x: (extract_quality(x["file_name"]), extract_episode(x["file_name"])))
+    # Sort the file list numerically by episode number
+    file_list.sort(key=lambda file: extract_ep_number(file.get("file_name", "")))
 
     await message.reply_text(f"Sequence ended! Sending {len(file_list)} files back...")
 
     for file in file_list:
-        await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
-
-
+        await client.send_document(
+            message.chat.id, 
+            file["file_id"], 
+            caption=f"**{file.get('file_name', '')}**", 
+        )
+        
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
@@ -234,9 +234,7 @@ async def auto_rename_files(client, message):
     if episode_number:
         placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
         for placeholder in placeholders:
-            if episode_number != float('inf'):
-    format_template = format_template.replace("{episode}", str(episode_number))
-
+            format_template = format_template.replace(placeholder, str(episode_number), 1)
 
         # Add extracted qualities to the format template
         quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
