@@ -19,6 +19,12 @@ from config import Config
 active_sequences = {}
 renaming_operations = {}
 
+# Function to detect video quality from filename
+def detect_quality(file_name):
+    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
+    match = re.search(r"(480p|720p|1080p)", file_name)
+    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
+
 @Client.on_message(filters.command("ssequence") & filters.private)
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
@@ -69,7 +75,7 @@ async def cancel_sequence(client, message: Message):
         await message.reply_text("No active sequencing process to cancel.")
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
-async def auto_rename_files(client, message: Message):
+async def auto_rename_files(client, message):
     user_id = message.from_user.id
     file_id = message.document.file_id if message.document else message.video.file_id if message.video else message.audio.file_id
     file_name = message.document.file_name if message.document else message.video.file_name if message.video else message.audio.file_name
@@ -110,21 +116,21 @@ async def auto_rename_files(client, message: Message):
     if await check_anti_nsfw(file_name, message):
         return await message.reply_text("NSFW content detected. File upload rejected.")
 
-    # Extract episode number and quality
     episode_number = extract_episode_number(file_name)
-    extracted_quality = extract_quality(file_name)
-
-    # Replace placeholders in format template
     if episode_number:
         placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
         for placeholder in placeholders:
             format_template = format_template.replace(placeholder, str(episode_number), 1)
 
-    if extracted_quality != "Unknown":
-        quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
-        for placeholder in quality_placeholders:
-            if placeholder in format_template:
-                format_template = format_template.replace(placeholder, extracted_quality)
+    # Add extracted qualities to the format template
+    quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
+    for quality_placeholder in quality_placeholders:
+        if quality_placeholder in format_template:
+            extracted_qualities = extract_quality(file_name)
+            if extracted_qualities == "Unknown":
+                await message.reply_text("**__I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'...__**")
+                return
+            format_template = format_template.replace(quality_placeholder, extracted_qualities)
 
     _, file_extension = os.path.splitext(file_name)
     renamed_file_name = f"{format_template}{file_extension}"
@@ -265,7 +271,6 @@ async def auto_rename_files(client, message: Message):
             os.remove(ph_path)
 
 def extract_quality(filename):
-    # Patterns for quality extraction
     patterns = [
         re.compile(r'\b(?:.*?(\d{3,4}[^\dp]*p).*?|.*?(\d{3,4}p))\b', re.IGNORECASE),  # 720p, 1080p, etc.
         re.compile(r'\b(?:4k|2k|HDRip|4kX264|4kx265)\b', re.IGNORECASE)  # Special qualities
@@ -277,7 +282,6 @@ def extract_quality(filename):
     return "Unknown"  # Default if no match found
 
 def extract_episode_number(filename):
-    # Patterns for episode number extraction
     patterns = [
         re.compile(r'S(\d+)(?:E|EP)(\d+)'),  # S01E01 or S01EP01
         re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)'),  # S01 E01 or S01 - EP01
@@ -291,8 +295,3 @@ def extract_episode_number(filename):
         if match:
             return int(match.group(2)) if len(match.groups()) > 1 else int(match.group(1))
     return float('inf')  # Default if no match found
-
-def detect_quality(file_name):
-    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
-    match = re.search(r"(480p|720p|1080p)", file_name)
-    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
