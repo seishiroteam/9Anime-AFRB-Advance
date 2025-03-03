@@ -61,7 +61,7 @@ async def end_sequence(client, message: Message):
 
     # Sending sorted files
     for file in sorted_files:
-        await client.send_document(message.chat.id, file["file_id"], caption=file.get("file_name", ""))
+        await client.send_document(message.chat.id, file["file_id"], caption=f"**{file.get('file_name', '')}**",)
 
     # Deleting old messages (file added messages)
     try:
