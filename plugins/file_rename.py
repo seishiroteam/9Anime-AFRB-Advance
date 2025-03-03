@@ -19,12 +19,6 @@ from config import Config
 active_sequences = {}
 renaming_operations = {}
 
-# Function to detect video quality from filename
-def detect_quality(file_name):
-    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
-    match = re.search(r"(480p|720p|1080p)", file_name)
-    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
-
 @Client.on_message(filters.command("ssequence") & filters.private)
 async def start_sequence(client, message: Message):
     user_id = message.from_user.id
@@ -297,3 +291,8 @@ def extract_episode_number(filename):
         if match:
             return int(match.group(2)) if len(match.groups()) > 1 else int(match.group(1))
     return float('inf')  # Default if no match found
+
+def detect_quality(file_name):
+    quality_order = {"480p": 1, "720p": 2, "1080p": 3}
+    match = re.search(r"(480p|720p|1080p)", file_name)
+    return quality_order.get(match.group(1), 4) if match else 4  # Default priority = 4
