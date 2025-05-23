@@ -142,56 +142,56 @@ class Database:
 
     async def get_title(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('title', 'NineAnimeOfficial [t.me/NineAnimeOfficial]')
+        return user.get('title', 'Seishiro at anime [t.me/seishiro_atanime]')
 
     async def set_title(self, user_id, title):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'title': title}})
 
     async def get_author(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('author', 'Blakite_Ravii')
+        return user.get('author', 'Seishiro')
 
     async def set_author(self, user_id, author):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'author': author}})
 
     async def get_artist(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('artist', 'Blakite_Ravii')
+        return user.get('artist', 'Seishiro')
 
     async def set_artist(self, user_id, artist):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'artist': artist}})
 
     async def get_audio(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('audio', '[NineAnimeOfficial]')
+        return user.get('audio', '[Seishiro_atanime]')
 
     async def set_audio(self, user_id, audio):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'audio': audio}})
 
     async def get_subtitle(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('subtitle', "[NineAnimeOfficial]")
+        return user.get('subtitle', "[Seishiro_atanime]")
 
     async def set_subtitle(self, user_id, subtitle):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'subtitle': subtitle}})
 
     async def get_video(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('video', '[NineAnimeOfficial]')
+        return user.get('video', '[Seishiro_atanime]')
 
     async def set_video(self, user_id, video):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'video': video}})
 
     async def get_encoded_by(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('encoded_by', "NineAnimeOfficial [Blakite_Ravii]")
+        return user.get('encoded_by', "seishiro at anime [Seishiro]")
 
     async def set_encoded_by(self, user_id, encoded_by):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'encoded_by': encoded_by}})
         
     async def get_custom_tag(self, user_id):
         user = await self.col.find_one({'_id': int(user_id)})
-        return user.get('customtag', "[NineAnimeOfficial]")
+        return user.get('customtag', "[Seishiro_atanime]")
 
     async def set_custom_tag(self, user_id, custom_tag):
         await self.col.update_one({'_id': int(user_id)}, {'$set': {'custom_tag': custom_tag}})
