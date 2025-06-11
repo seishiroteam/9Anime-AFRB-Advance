@@ -186,7 +186,7 @@ def extract_episode_number(filename):
     return None
 
 # Example Usage:
-filename = "Naruto Shippuden S01 - EP07 - 1080p [Dual Audio] @NineAnimeOfficial.mkv"
+filename = "Naruto Shippuden S01 - EP07 - 1080p [Dual Audio] @seishiro_atanime.mkv"
 episode_number = extract_episode_number(filename)
 print(f"Extracted Episode Number: {episode_number}")    
 
@@ -343,6 +343,40 @@ async def auto_rename_files(client, message):
             ph_path = await client.download_media(c_thumb)
         elif media_type == "video" and message.video.thumbs:
             ph_path = await client.download_media(message.video.thumbs[0].file_id)
+            async def _process_user_queue(self, user_id: int):
+        while True:
+            async with self.locks[user_id]:
+                if not self.queues.get(user_id):
+                    break
+                file_id, message, coro = self.queues[user_id].popleft()
+                self.processing[user_id].add(file_id)
+
+            semaphore = USER_SEMAPHORES.get(user_id)
+            if not semaphore:
+                continue
+
+            async with semaphore:
+                task_id = f"{user_id}:{file_id}"
+                try:
+                    for attempt in range(self.max_retries):
+                        try:
+                            # Always create a new task for the coroutine
+                            task = asyncio.create_task(coro())
+                            self.tasks[task_id] = task
+                            await task
+                            break
+                        except FloodWait as e:
+                            await asyncio.sleep(e.value + 1)
+                            logger.warning(f"FloodWait for {user_id}: Retry {attempt+1}/{self.max_retries}")
+                        except Exception as e:
+                            logger.error(f"Task error (attempt {attempt+1}): {e}")
+                            if attempt == self.max_retries - 1:
+                                await self._handle_failure(message, file_id, e)
+                finally:
+                    async with self.locks[user_id]:
+                        self.processing[user_id].discard(file_id)
+                        self.tasks.pop(task_id, None)
+                        self.active_processors.discard(user_id)
 
         if ph_path:
             img = Image.open(ph_path).convert("RGB")
