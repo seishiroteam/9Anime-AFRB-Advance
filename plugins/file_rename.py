@@ -344,7 +344,6 @@ async def auto_rename_files(client, message):
         elif media_type == "video" and message.video.thumbs:
             ph_path = await client.download_media(message.video.thumbs[0].file_id)
             async def _process_user_queue(self, user_id: int):
-                
         while True:
             async with self.locks[user_id]:
                 if not self.queues.get(user_id):
@@ -378,7 +377,6 @@ async def auto_rename_files(client, message):
                         self.processing[user_id].discard(file_id)
                         self.tasks.pop(task_id, None)
                         self.active_processors.discard(user_id)
-
         if ph_path:
             img = Image.open(ph_path).convert("RGB")
             img = img.resize((320, 320))
