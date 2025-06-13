@@ -343,6 +343,7 @@ async def auto_rename_files(client, message):
             ph_path = await client.download_media(c_thumb)
         elif media_type == "video" and message.video.thumbs:
             ph_path = await client.download_media(message.video.thumbs[0].file_id)
+            
             async def _process_user_queue(self, user_id: int):
         while True:
             async with self.locks[user_id]:
